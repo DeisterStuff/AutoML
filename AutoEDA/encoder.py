@@ -140,8 +140,6 @@ class FeatEncoder(TransformerMixin):
         self.feats_unary = self.feats_unary + self.get_unary_vars(work_df[feats],self.__unary_threshold)
         feats = list(set(feats)-set(self.feats_unary))
 
-        
-
         cardinality = work_df[feats].nunique()
         self.feats_id = self.feats_id + [col for col in feats if col.strip()[:3].replace(' ','_').lower()=='id_' or col.strip()[-3:].replace(' ','_').lower()=='_id'  or col.strip().lower()=='id']
         self.feats_bin = self.feats_bin + [col for col in feats if cardinality.loc[col]==2]
@@ -164,22 +162,20 @@ class FeatEncoder(TransformerMixin):
             
             if self.__bin_transform:
                 
-                if work_df[col].dtype == bool:
-                    
+                if ((work_df[col].dtype==bool) or (set(work_df[col])=={0,1})):   
+                    work_df[col] = work_df[col].astype(int)                
                     self.names.update({col:f'bin_{self.clean_names(col,symbols_nothing=self.__symbols_nothing, symbols_underscore=self.__symbols_underscore, method=self.__method)}' if not col.startswith('bin_') else col})
-                    work_df[col]=work_df[col].astype(int)
+                    
                     
                 elif (work_df[col].dtype=='object'):
                     category = [x for x in work_df[col].unique() if x==x]
                     dic = {k:category.index(k) for k in category}
                     self.bin_dict.update({col:category})
-                   
                     self.names.update({col:f"bin_{self.clean_names(col,symbols_nothing=self.__symbols_nothing,symbols_underscore=self.__symbols_underscore, method=self.__method)}" if not col.startswith('bin_') else col})
                     work_df[col].replace(dic,inplace=True)
-                
+
                 else:
-                    self.names.update({col:f'bin_{self.clean_names(col,symbols_nothing=self.__symbols_nothing, symbols_underscore=self.__symbols_underscore, method=self.__method)}' if not col.startswith('bin_') else col})
-                
+                    self.names.update({col:f'ord_{self.clean_names(col,symbols_nothing=self.__symbols_nothing, symbols_underscore=self.__symbols_underscore, method=self.__method)}' if not col.startswith('ord_') else col})
             else:
                 self.names.update({col:f'bin_{self.clean_names(col,symbols_nothing=self.__symbols_nothing, symbols_underscore=self.__symbols_underscore, method=self.__method)}' if not col.startswith('bin_') else col})
         
@@ -222,7 +218,6 @@ class FeatEncoder(TransformerMixin):
             'feats_null': len(self.feats_null),
             'feats_unary': len(self.feats_unary),
             'feats_numeric': len(self.feats_numeric),
-            'feats_unkown': len(self.feats_unkown),
         }
         return self
     
@@ -250,6 +245,21 @@ class FeatEncoder(TransformerMixin):
                                                                                +self.feats_date+self.feats_cluster
                                                                                +self.feats_other+self.feats_null
                                                                                +self.feats_unary]
+        self.resume = {
+            'feats_tgt': len(self.feats_tgt),
+            'feats_id': len(self.feats_id),
+            'feats_bin': len(self.feats_bin),
+            'feats_cont': len(self.feats_cont),
+            'feats_ord': len(self.feats_ord),
+            'feats_str': len(self.feats_str),
+            'feats_date': len(self.feats_date),
+            'feats_cluster': len(self.feats_cluster),
+            'feats_other': len(self.feats_other),
+            'feats_null': len(self.feats_null),
+            'feats_unary': len(self.feats_unary),
+            'feats_numeric': len(self.feats_numeric),
+            'feats_unkown': len(self.feats_unkown),
+        }                                                                               
         
     @staticmethod
     def __id_name(s):
@@ -268,13 +278,13 @@ class FeatEncoder(TransformerMixin):
         return s
 
     @staticmethod
-    def get_unary_vars(self, work_df, threshold=0.9):
-        def check_unary(col):
-            max_val = col.value_counts(True,dropna=False).max()
+    def get_unary_vars(work_df, threshold=0.9):
+        def check_unary(serie):
+            max_val = serie.value_counts(True,dropna=False).max()
             return max_val >= threshold
         unarys = []
         for col in work_df.columns:
-            if check_unary(work_df[col], threshold):
+            if check_unary(work_df[col]):
                 unarys.append(col)
         return unarys
 
